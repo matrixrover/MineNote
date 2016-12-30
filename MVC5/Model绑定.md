@@ -127,6 +127,10 @@ check the result through the ModelState.IsValid property.**
 
 --------------------------------
 
+# Customizing the Model Binding System
+
+## Creating a Custom Value Provider
+
     namespace System.Web.Mvc {
         public interface IValueProvider {
             bool ContainsPrefix(string prefix);
@@ -138,3 +142,38 @@ The ContainsPrefix method is called by the model binder to determine if the valu
 for a given prefix. The GetValue method returns a value for a given data key, or null if the provider doesn’t have any
 suitable data.
 
+This **ValueProviderResult** class has three constructor parameters. The
+first is the data item that I want to associate with the requested key. The second parameter is a version of the data
+value that is safe to display as part of an HTML page. The final parameter is the culture information that relates to the
+value; I have specified the InvariantCulture.
+
+To register the value provider with the application, I need to create a factory class that will create instances of
+the provider when they are required by the MVC Framework. The factory class must be derived from the abstract
+**ValueProviderFactory** class.
+
+    public class CustomValueProviderFactory : ValueProviderFactory {
+        public override IValueProvider GetValueProvider(ControllerContext controllerContext) {
+            return new CountryValueProvider();
+        }
+    }
+
+The GetValueProvider method is called when the model binder wants to obtain values for the binding process.
+This implementation simply creates and returns an instance of the CountryValueProvider class, but you can use
+the data provided through the ControllerContext parameter to respond to different kinds of requests by creating
+different value providers.
+
+I need to register the factory class with the application, which I do in the Application_Start method of
+Global.asax
+
+    ValueProviderFactories.Factories.Insert(0, new CustomValueProviderFactory());
+
+I register the factory class by adding an instance to the static ValueProviderFactories.Factories collection.
+The model binder looks at the value providers in sequence, which means I have to use the Insert method to put the
+custom factory at the first position in the collection if I want to take precedence over the built-in providers.
+
+If I want the custom provider to be a fallback that is used when the other providers cannot supply a data value,
+then I can use the Add method to append the factory class to the end of the collection, like this:
+
+    ValueProviderFactories.Factories.Add(new CustomValueProviderFactory());
+
+## Creating a Custom Model Binder
